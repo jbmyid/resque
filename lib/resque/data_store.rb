@@ -98,9 +98,12 @@ module Resque
       def initialize(redis)
         @redis = redis
       end
+
       def push_to_queue(queue,encoded_item)
         @redis.pipelined do
           watch_queue(queue)
+        end
+        @redis.pipelined do
           @redis.rpush redis_key_for_queue(queue), encoded_item
         end
       end
@@ -130,6 +133,8 @@ module Resque
       def remove_queue(queue)
         @redis.pipelined do
           @redis.srem(:queues, queue.to_s)
+        end
+        @redis.pipelined do
           @redis.del(redis_key_for_queue(queue))
         end
       end
@@ -249,10 +254,15 @@ module Resque
       def unregister_worker(worker, &block)
         @redis.pipelined do
           @redis.srem(:workers, worker)
+        end
+        @redis.pipelined do
           @redis.del(redis_key_for_worker(worker))
+        end
+        @redis.pipelined do
           @redis.del(redis_key_for_worker_start_time(worker))
+        end
+        @redis.pipelined do
           @redis.hdel(HEARTBEAT_KEY, worker.to_s)
-
           block.call
         end
       end
